@@ -1,0 +1,263 @@
+tokens
+
+lifeline create "," "{" "}" at to send seq alt par loop 
+
+patterns
+
+[[:alpha:]][[:alnum:]]*					identifier
+[[:space:]]+					{ nextTerminal }
+
+rules
+
+%topic start
+
+S 's' : Lifeline 'lifeline' Interactions 'rest'
+
+	%aspect scope
+
+	{ scope @ rest = scope @ lifeline }
+
+	%aspect source 
+
+	{ source @ rest = "'anonymous'" yourself } 
+
+	%aspect traces
+
+	{ traces @ s = (traces @ rest) weak: (scope @ lifeline) }
+
+	%aspect nfa
+
+	{ nfa @ s = ((nfa @ rest) fold:[:acc :each | acc seq: each ]) weak: (scope @ lifeline) }
+
+	%aspect visual
+
+	{ sdorg @ s = sdorg @ rest inject: String new into:[:acc :each | acc, each ] }
+
+;
+
+%topic lifeline
+ 
+Lifeline 'lhs' : lifeline Identifiers 'list'
+
+	%aspect scope
+
+	{ scope @ lhs = scope @ list } 
+;
+
+Identifiers 'lhs' : Identifier 'head' CommaIdentifier * 'tail'
+
+	%aspect scope
+
+	{ scope @ lhs = (Set with: scope @ head) , (scope @ tail) }
+;
+
+CommaIdentifier 'lhs' : "," Identifier 'id'
+
+	%aspect scope
+
+	{ scope @ lhs = scope @ id }
+;
+
+Identifier 'lhs' : identifier 'id'
+
+	%aspect scope
+
+	{ scope @ lhs = id value asString }
+
+;
+
+%topic interactions
+
+Interactions 'lhs' : Relative + 'xs' Absolute * 'ys'
+
+	%aspect traces 
+
+	{ traces @ lhs =  (traces @ xs), (traces @ ys) }
+
+	%aspect nfa
+
+	{ nfa @ lhs = (nfa @ xs), (nfa @ ys) } 
+
+	%aspect visual
+
+	{ sdorg @ lhs =  (sdorg @ xs), (sdorg @ ys) }
+
+	| Absolute + 'list'
+
+	%aspect traces
+
+	{ traces @ lhs = (traces @ list) }
+
+	%aspect nfa
+
+	{ nfa @ lhs = nfa @ list } 
+
+	%aspect visual
+
+	{ sdorg @ lhs = (sdorg @list) }
+
+;
+
+Absolute 'f' : at identifier 'n' Relative + 'list' 
+
+	%aspect source 
+
+	{ source @ list = n value asString } 
+
+	%aspect traces
+
+	{ traces @ f = traces @ list }
+
+	%aspect nfa 
+
+	{ nfa @ f = nfa @ list }
+
+	%aspect visual
+
+	{ sdorg @ f = sdorg @ list }
+
+; 
+
+Relative 'lhs' : 
+
+	Call 'c' 
+
+	%aspect traces 
+
+	{ traces @ lhs = traces @ c  } 
+
+	%aspect nfa
+
+	{ nfa @ lhs = nfa @ c }
+
+	%aspect visual
+
+	{ sdorg @ lhs = sdorg @ c }
+
+	| Fragment 'f' 
+
+	%aspect traces
+
+	{ traces @ lhs = traces @ f } 
+
+	%aspect nfa
+
+	{ nfa @ lhs = nfa @ f }
+
+	%aspect visual
+
+	{ sdorg @ lhs = sdorg @ f }
+;
+
+%topic calls
+
+Call 'c' : send Event 'e' Calls 'cs'
+
+	%aspect traces
+
+	{ traces @ c = (Set with: (SDLTrace event: event @ e)) concat: traces @ cs }
+
+	%aspect nfa
+
+	{ nfa @ c = NFA basic: event @ e alphabet: { event @ e } asSet }
+
+	%aspect source
+
+	{ source @ cs = (event @ e) target }
+
+	{ source @ e = source @ c }
+
+	%aspect visual
+
+	{ sdorg @ c = (event @ e) seqDiagCall , ((sdorg @ cs) inject: String new into:[:acc :each | acc , each ]) , (event @ e) seqDiagReply }  
+;
+
+Calls 'c' : "{" Call * 'list' "}" 
+
+	%aspect traces
+
+	{ traces @ c = ( traces @ list ) strict }
+
+	%aspect visual
+
+	{ sdog @ c = (sdorg @ list) inject: String new into:[:acc :each | acc , each ] }
+;
+
+Event 'lhs' : identifier 'm' to identifier 't'
+
+	%aspect traces
+
+	{ event @ lhs = SDLEvent new source: source @ lhs ; message: m value asString ; target: t value asString ; yourself }
+;
+
+%topic fragments
+
+Fragment : Seq | Alt | Par | Loop | Create ;
+
+Seq 'lhs' : seq "{" Interactions 'list' "}" 
+
+	%aspect traces
+
+	{ traces @ lhs = (traces @ list) weak: scope @ lhs }
+
+	%aspect nfa
+
+	{ nfa @ lhs = ((nfa @ list) fold:[:acc :each | acc seq: each ]) weak: (scope @ lhs) }
+
+	%aspect visual
+
+	{ sdorg @ lhs = SDL seq , ((sdorg @ list) fold:[:acc :each | acc ,  each ] ifEmpty:[''] ) , SDL end } 
+
+;
+
+Alt 'a' : alt "{" Interactions 'list' "}" 
+
+	%aspect traces
+
+	{ traces @ a = (traces @ list) inject: (Set new) into:[:acc :each | acc union: each ] }
+
+	%aspect nfa
+
+	{ nfa @ a = (nfa @ list) fold:[:acc :each | acc union: each ] }
+
+	%aspect visual
+
+	{ sdorg @ a = SDL alt , ((sdorg @ list) fold:[:acc :each | acc , SDL else ,  each ] ifEmpty:[''] ) , SDL end } 
+;
+
+Par 'p' : par "{" Interactions 'list' "}" 
+ 
+	%aspect traces
+
+	{ traces @ p = (traces @ list) inject: (Set with: SDLTrace new) into:[:acc :each | acc interleave: each ] }
+
+	%aspect nfa
+
+	{ nfa @ p = (nfa @ list) fold:[:acc :each | acc interleave: each ] }
+
+	%aspect visual
+
+	{ sdorg @ p = SDL par , ((sdorg @ list) fold:[:acc :each | acc , SDL thread ,  each ] ifEmpty:[''] ) , SDL end } 
+;
+
+Loop 'lhs' : loop "{" Interactions 'x' "}" 
+
+	%aspect visual
+
+	{ sdorg @ lhs = SDL loop , ((sdorg @ x) fold:[:acc :each | acc , each ] ifEmpty:[''] ) , SDL end } 
+
+;
+
+%topic create
+
+Create 'lhs' : create identifier 'name' "{" Interactions 'list' "}"
+
+	%aspect scope
+
+	{ scope @ list = scope @ lhs , { name value asString } }
+
+	%aspect visual
+
+	{ sdorg @ lhs = source @ lhs , "' -->* '" yourself , name value asString , "': <<create>>'" yourself , String newLineString, ((sdorg @ list) fold:[:acc :each | acc ,  each ] ifEmpty:[''] ) , "'destroyafter '" yourself, name value asString, String newLineString }
+
+;
