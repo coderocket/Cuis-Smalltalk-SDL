@@ -1,0 +1,163 @@
+
+lifeline A, B, C, D
+
+at A
+
+alt 
+{
+	send m1 to B 
+	{ }
+
+	send m2 to C 
+	{ }
+}
+
+at C
+
+send m3 to D
+
+
+
+
+lifeline s,x,y
+
+send change to s
+{
+	send update to x
+	{
+		send query to s
+	}
+
+	send update to y
+	{
+		send query to s
+	}
+}
+
+traces
+ 
+{ < anonymous.change.s , s.update.x, x.query.s, s.update.y, y.query.s > }
+
+
+lifeline C, X, Y
+
+at C
+
+par 
+{
+	send invite to X
+	{ }
+	send invite to Y
+	{ }
+}
+
+par
+{
+	at X 
+
+	alt
+	{
+		send accept to C
+		{ }
+		send reject to C
+		{ }
+	}
+
+	at Y 
+
+	alt
+	{
+		send accept to C
+		{ }
+		send reject to C
+		{ }
+	}
+
+}
+
+at C
+
+alt 
+{
+
+	par 
+	{
+		send confirm to X
+		{ }
+		send confirm to Y
+		{ }
+	}
+
+	par 
+	{
+		send cancel to X
+		{ }
+		send cancel to Y
+		{ }
+	}
+}
+
+An alternative that better captures the intent of the protocol, to
+confirm when both parties accept and to cancel when at least one of
+the parties rejects:
+
+lifeline C, X, Y
+
+at C
+
+par 
+{
+	send invite to X
+	{ }
+	send invite to Y
+	{ }
+}
+
+alt 
+{
+	weak
+	{
+		par
+		{
+			at X 
+			send accept to C
+			{ }
+			at Y 
+			send accept to C
+			{ }
+		}
+		par 
+		{
+			send confirm to X
+			{ }
+			send confirm to Y
+			{ }
+		}
+
+	}
+
+	weak 
+	{
+		alt
+		{
+			at X 
+
+			send reject to C
+			{ }
+
+			at Y 
+
+			send reject to C
+			{ }
+		}
+		par 
+		{
+			send cancel to X
+			{ }
+
+			send cancel to Y
+			{ }
+		}
+	}
+}
+

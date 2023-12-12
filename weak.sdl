@@ -1,0 +1,15 @@
+lifeline A, B, C, D
+ 
+at A  
+ 
+alt  
+{ 
+	send m1 to B 	{ }
+
+	send m2 to C 	{ }
+}
+ 
+at C
+
+send m3 to D { } 
+   

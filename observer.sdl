@@ -1,0 +1,16 @@
+
+lifeline s,x,y
+
+send change to s
+{
+	send update to x
+	{
+		send query to s {}
+	}
+
+	send update to y
+	{
+		send query to s {}
+	}
+}
+
